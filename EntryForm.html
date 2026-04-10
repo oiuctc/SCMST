@@ -50,7 +50,7 @@
         <!-- Header -->
         <header class="header">
             <div class="logo">
-                <i class="fa-solid fa-graduation-cap"></i>
+                <img src="csitlogo.png" alt="شعار كلية ستارز" style="height: 50px; width: auto;">
                 كلية ستارز للعلوم الطبية والتقنية
             </div>
             <div style="display: flex; gap: 1rem;">
@@ -132,7 +132,7 @@
                 </div>
 
                 <div class="form-group" id="manualProfessorDiv" style="display: none; background-color: rgba(59, 130, 246, 0.08); padding: 1rem; border-radius: 8px; border: 1px dashed var(--secondary-color); grid-column: 1 / -1;">
-                    <label class="form-label" style="color: var(--secondary-color);">الاسم يدوياً (ملحق أضافة) <span style="color: #ef4444;">*</span></label>
+                    <label class="form-label" style="color: var(--secondary-color);">الاسم يدوياً <span style="color: #ef4444;">*</span></label>
                     <input type="text" id="manualProfessorInput" name="additionAnnex" class="form-input" placeholder="اكتب اسم عضو هيئة التدريس هنا...">
                 </div>
 
@@ -141,15 +141,8 @@
                     <input type="date" name="lectureDate" class="form-input" required>
                 </div>
 
-                <!-- معلومات الفئة الدراسية -->
-                <div class="form-group">
-                    <label class="form-label">النوع <span style="color: #ef4444;">*</span></label>
-                    <div class="radio-group form-input">
-                        <label class="radio-label"><input type="radio" name="gender" value="طلاب" class="custom-radio" required> طلاب</label>
-                        <label class="radio-label"><input type="radio" name="gender" value="طالبات" class="custom-radio" required> طالبات</label>
-                        <label class="radio-label"><input type="radio" name="gender" value="مشترك" class="custom-radio" required> مشترك</label>
-                    </div>
-                </div>
+                <!-- معلومات الفئة الدراسية (مخفية بقيمة 1) -->
+                <input type="hidden" name="gender" value="1">
 
                 <div class="form-group">
                     <label class="form-label">رقم الأسبوع الدراسي <span style="color: #ef4444;">*</span></label>
@@ -231,14 +224,11 @@
                 professorSelect.appendChild(opt);
             });
             
-            // Add 'other' option under a classification 'ملحق أضافة'
-            const optGroup = document.createElement('optgroup');
-            optGroup.label = "ملحق أضافة";
+            // Add 'other' option
             const otherOpt = document.createElement('option');
             otherOpt.value = "other";
             otherOpt.textContent = "غير موجود بالقائمة (إضافة يدوية)";
-            optGroup.appendChild(otherOpt);
-            professorSelect.appendChild(optGroup);
+            professorSelect.appendChild(otherOpt);
         });
 
         // Toggle Manual Professor Input
@@ -340,8 +330,8 @@
             let successName = formData.get('professorName');
             if (successName === 'other') {
                 successName = formData.get('additionAnnex');
-                // Optional: Swap the generic value for the spreadsheet
-                formData.set('professorName', successName + ' (ملحق أضافة)');
+                // Swap the generic value for the spreadsheet
+                formData.set('professorName', successName);
             }
 
             try {
