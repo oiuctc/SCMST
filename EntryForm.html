@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نموذج متابعة سير محاضرات الجامعة</title>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- SweetAlert2 for beautiful alerts -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="./assets/css/style.css">
+    <script>
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+    <!-- Dynamic Data -->
+    <script src="./assets/js/app_data.js"></script>
+
+    <style>
+        .custom-radio {
+            accent-color: var(--secondary-color);
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+        .radio-group {
+            display: flex;
+            gap: 1.5rem;
+            padding: 0.75rem 0;
+        }
+        .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            font-weight: 500;
+        }
+    </style>
+</head>
+
+<body>
+    
+    <!-- Loader -->
+    <div id="loader">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="container animate-fade-in text-main">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <i class="fa-solid fa-graduation-cap"></i>
+                كلية ستارز للعلوم الطبية والتقنية
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <a href="index.html" class="btn-outline" style="padding: 0.5rem 1rem;">
+                    <i class="fa-solid fa-arrow-right"></i> القائمة الرئيسية
+                </a>
+                <button class="theme-toggle" id="themeToggleBtn" aria-label="تبديل المظهر">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+            </div>
+        </header>
+
+        <form id="lectureForm" class="glass-panel" style="padding: 2.5rem; margin-bottom: 2rem;">
+            
+            <div style="margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+                <h2 style="font-size: 1.8rem; font-weight: 800; color: var(--secondary-color);">نموذج إدخال سير المحاضرات</h2>
+                <p style="color: var(--text-muted); font-size: 0.95rem;">الحقول المؤشر عليها بـ <span style="color: #ef4444;">*</span> إجبارية</p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                
+                <div class="form-group">
+                    <label class="form-label">الكلية <span style="color: #ef4444;">*</span></label>
+                    <input type="text" name="college" class="form-input" value="كلية ستارز للعلوم الطبية والتقنية" readonly required style="background-color: var(--surface-bg); opacity: 0.8; cursor: not-allowed;">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">العام الجامعي <span style="color: #ef4444;">*</span></label>
+                    <select name="academicYear" class="form-input" required>
+                        <option value="" disabled selected>اختر العام الجامعي</option>
+                        <option value="2025-2026">2025-2026</option>
+                        <option value="2026-2027">2026-2027</option>
+                        <option value="2027-2028">2027-2028</option>
+                    </select>
+                </div>
+
+                <!-- البيانات الأكاديمية المتسلسلة -->
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label class="form-label">البرنامج <span style="color: #ef4444;">*</span></label>
+                    <select id="program" name="department" class="form-input" required>
+                        <option value="" disabled selected>اختر البرنامج</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">التخصص <span style="color: #ef4444;">*</span></label>
+                    <select id="specialization" name="specialization" class="form-input" required disabled>
+                        <option value="" disabled selected>اختر التخصص</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">الفرقة <span style="color: #ef4444;">*</span></label>
+                    <select id="level" name="level" class="form-input" required disabled>
+                        <option value="" disabled selected>اختر الفرقة</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">الفصل الدراسي <span style="color: #ef4444;">*</span></label>
+                    <select id="semester" name="semester" class="form-input" required disabled>
+                        <option value="" disabled selected>اختر الفصل</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label class="form-label">اسم المقرر <span style="color: #ef4444;">*</span></label>
+                    <select id="courseName" name="courseName" class="form-input" required disabled>
+                        <option value="" disabled selected>اختر المقرر</option>
+                    </select>
+                </div>
+
+                <!-- اسم الأستاذ -->
+                <div class="form-group">
+                    <label class="form-label">اسم الأستاذ <span style="color: #ef4444;">*</span></label>
+                    <select id="professorNameSelect" name="professorName" class="form-input" required onchange="toggleManualProfessor()">
+                        <option value="" disabled selected>ابحث أو اختر من القائمة...</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="manualProfessorDiv" style="display: none; background-color: rgba(59, 130, 246, 0.08); padding: 1rem; border-radius: 8px; border: 1px dashed var(--secondary-color); grid-column: 1 / -1;">
+                    <label class="form-label" style="color: var(--secondary-color);">الاسم يدوياً (ملحق أضافة) <span style="color: #ef4444;">*</span></label>
+                    <input type="text" id="manualProfessorInput" name="additionAnnex" class="form-input" placeholder="اكتب اسم عضو هيئة التدريس هنا...">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">تاريخ تدريس المحاضرة <span style="color: #ef4444;">*</span></label>
+                    <input type="date" name="lectureDate" class="form-input" required>
+                </div>
+
+                <!-- معلومات الفئة الدراسية -->
+                <div class="form-group">
+                    <label class="form-label">النوع <span style="color: #ef4444;">*</span></label>
+                    <div class="radio-group form-input">
+                        <label class="radio-label"><input type="radio" name="gender" value="طلاب" class="custom-radio" required> طلاب</label>
+                        <label class="radio-label"><input type="radio" name="gender" value="طالبات" class="custom-radio" required> طالبات</label>
+                        <label class="radio-label"><input type="radio" name="gender" value="مشترك" class="custom-radio" required> مشترك</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">رقم الأسبوع الدراسي <span style="color: #ef4444;">*</span></label>
+                    <select id="weekNumber" name="weekNumber" class="form-input" required>
+                        <option value="" disabled selected>اختر الأسبوع</option>
+                        <script>for (let i = 1; i <= 14; i++) document.write(`<option value="${i}">${i}</option>`);</script>
+                    </select>
+                </div>
+
+                <!-- طريقة التدريس -->
+                <div class="form-group">
+                    <label class="form-label">هل تم تدريس المحاضرة؟ <span style="color: #ef4444;">*</span></label>
+                    <div class="radio-group form-input">
+                        <label class="radio-label"><input type="radio" name="isTaught" value="نعم" class="custom-radio" required> نعم</label>
+                        <label class="radio-label"><input type="radio" name="isTaught" value="لا" class="custom-radio" required> لا</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">طريقة التدريس <span style="color: #ef4444;">*</span></label>
+                    <div class="radio-group form-input">
+                        <label class="radio-label"><input type="radio" name="teachingMethod" value="حضوري" class="custom-radio" required> حضوري</label>
+                        <label class="radio-label"><input type="radio" name="teachingMethod" value="عن بعد" class="custom-radio" required> عن بعد</label>
+                    </div>
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label class="form-label">ملاحظات <span style="color: #ef4444;">*</span></label>
+                    <textarea name="notes" rows="3" class="form-input" required placeholder="أكتب ملاحظاتك (أو اكتب 'لا يوجد')"></textarea>
+                </div>
+
+            </div>
+
+            <div style="text-align: center; margin-top: 2rem;">
+                <button type="submit" id="submitButton" class="btn-primary" style="width: 250px; font-size: 1.1rem;">
+                    تسجيل البيانات <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Loader logic
+        window.addEventListener('load', () => {
+            document.getElementById('loader').style.opacity = '0';
+            setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
+        });
+
+        // Theme Toggle Logic
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const icon = themeToggleBtn.querySelector('i');
+        if (document.documentElement.getAttribute('data-theme') === 'dark') {
+            icon.classList.replace('fa-moon', 'fa-sun');
+        }
+        themeToggleBtn.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            icon.classList.replace(newTheme === 'dark' ? 'fa-moon' : 'fa-sun', newTheme === 'dark' ? 'fa-sun' : 'fa-moon');
+        });
+
+        // Initialize Dynamic Data from app_data.js
+        document.addEventListener('DOMContentLoaded', () => {
+            const programsList = Object.keys(window_appData.programsDict);
+            const programSelect = document.getElementById('program');
+            programsList.forEach(prog => {
+                const opt = document.createElement('option');
+                opt.value = prog; opt.textContent = prog;
+                programSelect.appendChild(opt);
+            });
+
+            // Populate professors
+            const professorSelect = document.getElementById('professorNameSelect');
+            window_appData.professorsList.sort((a,b) => a.localeCompare(b, 'ar')).forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                professorSelect.appendChild(opt);
+            });
+            
+            // Add 'other' option under a classification 'ملحق أضافة'
+            const optGroup = document.createElement('optgroup');
+            optGroup.label = "ملحق أضافة";
+            const otherOpt = document.createElement('option');
+            otherOpt.value = "other";
+            otherOpt.textContent = "غير موجود بالقائمة (إضافة يدوية)";
+            optGroup.appendChild(otherOpt);
+            professorSelect.appendChild(optGroup);
+        });
+
+        // Toggle Manual Professor Input
+        function toggleManualProfessor() {
+            const select = document.getElementById('professorNameSelect');
+            const manualDiv = document.getElementById('manualProfessorDiv');
+            const manualInput = document.getElementById('manualProfessorInput');
+            
+            if (select.value === 'other') {
+                manualDiv.style.display = 'block';
+                manualInput.setAttribute('required', 'required');
+                manualInput.focus();
+            } else {
+                manualDiv.style.display = 'none';
+                manualInput.removeAttribute('required');
+                manualInput.value = '';
+            }
+        }
+
+        // Cascade Dropdowns Logic
+        const progSel = document.getElementById('program');
+        const specSel = document.getElementById('specialization');
+        const lvlSel = document.getElementById('level');
+        const semSel = document.getElementById('semester');
+        const courseSel = document.getElementById('courseName');
+
+        function resetSelect(sel, placeholder) {
+            sel.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
+            sel.disabled = true;
+        }
+
+        progSel.addEventListener('change', () => {
+            resetSelect(specSel, 'اختر التخصص');
+            resetSelect(lvlSel, 'اختر الفرقة');
+            resetSelect(semSel, 'اختر الفصل');
+            resetSelect(courseSel, 'اختر المقرر');
+            
+            const specs = Object.keys(window_appData.programsDict[progSel.value]);
+            specs.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = opt.textContent = s;
+                specSel.appendChild(opt);
+            });
+            specSel.disabled = false;
+        });
+
+        specSel.addEventListener('change', () => {
+            resetSelect(lvlSel, 'اختر الفرقة');
+            resetSelect(semSel, 'اختر الفصل');
+            resetSelect(courseSel, 'اختر المقرر');
+
+            const lvls = Object.keys(window_appData.programsDict[progSel.value][specSel.value]);
+            lvls.forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = opt.textContent = l;
+                lvlSel.appendChild(opt);
+            });
+            lvlSel.disabled = false;
+        });
+
+        lvlSel.addEventListener('change', () => {
+            resetSelect(semSel, 'اختر الفصل');
+            resetSelect(courseSel, 'اختر المقرر');
+
+            const sems = Object.keys(window_appData.programsDict[progSel.value][specSel.value][lvlSel.value]);
+            sems.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = opt.textContent = s;
+                semSel.appendChild(opt);
+            });
+            semSel.disabled = false;
+        });
+
+        semSel.addEventListener('change', () => {
+            resetSelect(courseSel, 'اختر المقرر');
+
+            const crs = window_appData.programsDict[progSel.value][specSel.value][lvlSel.value][semSel.value];
+            crs.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = opt.textContent = c;
+                courseSel.appendChild(opt);
+            });
+            courseSel.disabled = false;
+        });
+
+        // Form Submit
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzGE0QEX3KW5xf6NFzT0peDDCvl6iI73ezom6IRayMlOQvv1EVH2F9j3Rrnc5MICcMs/exec';
+        
+        document.getElementById('lectureForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitButton');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري الإرسال...';
+            
+            const formData = new FormData(e.target);
+            formData.append('timestamp', new Date().toLocaleString('ar-SA'));
+
+            let successName = formData.get('professorName');
+            if (successName === 'other') {
+                successName = formData.get('additionAnnex');
+                // Optional: Swap the generic value for the spreadsheet
+                formData.set('professorName', successName + ' (ملحق أضافة)');
+            }
+
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    Swal.fire({
+                        title: 'تم بنجاح!',
+                        text: `شكراً لك يا أستاذ ${successName}، تم التسجيل!`,
+                        icon: 'success',
+                        confirmButtonText: 'حسناً',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                    e.target.reset();
+                    toggleManualProfessor(); // Reset hidden manual field
+                    resetSelect(specSel, 'اختر التخصص');
+                    resetSelect(lvlSel, 'اختر الفرقة');
+                    resetSelect(semSel, 'اختر الفصل');
+                    resetSelect(courseSel, 'اختر المقرر');
+                } else {
+                    throw new Error();
+                }
+            } catch (error) {
+                Swal.fire({
+                    title: 'حدث خطأ!',
+                    text: 'فشل الإرسال. قد تكون المشكلة في الاتصال بالإنترنت.',
+                    icon: 'error',
+                    confirmButtonText: 'حسناً',
+                    confirmButtonColor: '#ef4444'
+                });
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'تسجيل البيانات <i class="fa-solid fa-paper-plane"></i>';
+            }
+        });
+    </script>
+</body>
+</html>

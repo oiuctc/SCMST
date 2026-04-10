@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام متابعة الخطة الدراسية</title>
+
+    <!-- الخطوط العربية -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- المكتبات الأساسية -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f0f4f8;
+            color: #1e293b;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        }
+
+        /* تنسيقات خاصة بالتقرير */
+        .report-meta-box {
+            border: 1px dashed #94a3b8;
+            background-color: #f8fafc;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #475569;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .report-header-box {
+            background-color: #f1f5f9;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+            font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .report-table th {
+            background-color: #1e293b;
+            color: #fff;
+            border: 1px solid #000;
+            padding: 8px;
+            font-weight: 800;
+        }
+
+        .report-table td {
+            border: 1px solid #000;
+            padding: 8px;
+        }
+
+        .report-table tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        .loader-ring {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+        }
+
+        .loader-ring:after {
+            content: " ";
+            display: block;
+            width: 32px;
+            height: 32px;
+            margin: 4px;
+            border-radius: 50%;
+            border: 3px solid #3b82f6;
+            border-color: #3b82f6 transparent #3b82f6 transparent;
+            animation: loader-ring 1.2s linear infinite;
+        }
+
+        @keyframes loader-ring {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { DEFAULT: '#2563eb', 50: '#eff6ff', 100: '#dbeafe', 600: '#2563eb', 700: '#1d4ed8' },
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="overflow-hidden h-screen flex">
+
+    <!-- شاشة التحميل -->
+    <div id="loader"
+        class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm transition-opacity duration-500">
+        <div class="loader-ring mb-4"></div>
+        <h2 class="text-xl font-bold text-slate-800">جاري تحليل بيانات الخطة الدراسية...</h2>
+    </div>
+
+    <!-- القائمة الجانبية -->
+    <aside
+        class="w-72 bg-white border-l border-slate-200 shadow-xl z-20 hidden md:flex flex-col transition-all duration-300"
+        id="sidebar">
+        <div class="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50">
+            <div
+                class="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center text-white shadow-lg shadow-blue-900/20">
+                <i class="fa-solid fa-graduation-cap text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold text-slate-800">النظام الأكاديمي</h1>
+                <p class="text-[10px] text-slate-500 uppercase tracking-wider">متابعة المحاضرات</p>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-5 space-y-6">
+            <div class="flex justify-between items-center mb-1">
+                <h3 class="font-bold text-slate-700 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-filter text-primary"></i> خيارات التصفية
+                </h3>
+                <button onclick="resetFilters()"
+                    class="text-xs text-red-500 hover:text-white hover:bg-red-500 px-2 py-1 rounded transition-colors">إعادة
+                    تعيين</button>
+            </div>
+
+            <div class="space-y-4" id="filtersContainer">
+                <div class="animate-pulse space-y-3">
+                    <div class="h-10 bg-slate-100 rounded"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 bg-slate-50 border-t border-slate-200 text-center">
+            <div class="text-xs text-slate-500 flex items-center justify-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                <span id="systemStatus">متصل بقاعدة البيانات</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="flex-1 flex flex-col relative overflow-hidden bg-[#f8fafc]">
+
+        <header
+            class="h-18 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm flex items-center justify-between px-6 py-3 z-10 sticky top-0">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()"
+                    class="md:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 hidden sm:block">لوحة المؤشرات</h2>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <a href="index.html"
+                    class="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:-translate-y-0.5 shadow-sm">
+                    <i class="fa-solid fa-arrow-right"></i>
+                    <span class="hidden sm:inline">الرئيسية</span>
+                </a>
+                <button onclick="openExportModal()"
+                    class="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-lg shadow-slate-800/20 transition-all hover:-translate-y-0.5">
+                    <i class="fa-solid fa-print"></i>
+                    <span>طباعة التقارير</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-6 scroll-smooth">
+
+            <!-- KPIs -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+                <div class="glass-card rounded-2xl p-5 border-t-4 border-blue-500">
+                    <div class="text-slate-500 text-xs font-bold uppercase mb-1">إجمالي المحاضرات</div>
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-3xl font-extrabold text-slate-800" id="kpiTotalLectures">0</h3>
+                        <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><i
+                                class="fa-solid fa-layer-group"></i></div>
+                    </div>
+                </div>
+                <div class="glass-card rounded-2xl p-5 border-t-4 border-emerald-500">
+                    <div class="text-slate-500 text-xs font-bold uppercase mb-1">المحاضرات المنفذة</div>
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-3xl font-extrabold text-slate-800" id="kpiTaughtYes">0</h3>
+                        <div
+                            class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-card rounded-2xl p-5 border-t-4 border-purple-500">
+                    <div class="text-slate-500 text-xs font-bold uppercase mb-1">أعضاء هيئة التدريس</div>
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-3xl font-extrabold text-slate-800" id="kpiInstructors">0</h3>
+                        <div
+                            class="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
+                            <i class="fa-solid fa-chalkboard-user"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-card rounded-2xl p-5 border-t-4 border-orange-500">
+                    <div class="text-slate-500 text-xs font-bold uppercase mb-1">المقررات الدراسية</div>
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-3xl font-extrabold text-slate-800" id="kpiActiveCourses">0</h3>
+                        <div
+                            class="w-10 h-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center">
+                            <i class="fa-solid fa-book-open"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="glass-card rounded-2xl p-6">
+                    <h3 class="text-slate-700 font-bold mb-4 border-r-4 border-blue-500 pr-3">المحاضرات حسب البرنامج
+                        (توزيع)</h3>
+                    <div class="h-64 relative"><canvas id="deptChart"></canvas></div>
+                </div>
+                <div class="glass-card rounded-2xl p-6">
+                    <h3 class="text-slate-700 font-bold mb-4 border-r-4 border-purple-500 pr-3">التوزيع حسب الأسابيع
+                    </h3>
+                    <div class="h-64 relative"><canvas id="weeksChart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="glass-card rounded-2xl overflow-hidden shadow-sm">
+                <div class="p-5 border-b border-slate-100 flex justify-between items-center gap-4 bg-white/50">
+                    <h3 class="font-bold text-slate-700">سجل البيانات الخام</h3>
+                    <div class="relative w-64">
+                        <input type="text" id="searchInput" placeholder="بحث..."
+                            class="w-full pl-4 pr-10 py-2 rounded-lg border border-slate-200 text-sm focus:border-primary outline-none">
+                        <i class="fa-solid fa-search absolute right-3 top-2.5 text-slate-400"></i>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right">
+                        <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
+                            <tr>
+                                <th class="px-6 py-4">البرنامج</th>
+                                <th class="px-6 py-4">الفرقة</th>
+                                <th class="px-6 py-4">المقرر</th>
+                                <th class="px-6 py-4">الأستاذ</th>
+                                <th class="px-6 py-4">الأسبوع</th>
+                                <th class="px-6 py-4">طريقة المحاضرة</th>
+                                <th class="px-6 py-4 text-center">الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm text-slate-600" id="dataTableBody"></tbody>
+                    </table>
+                </div>
+                <div class="p-4 text-center">
+                    <button onclick="loadMore()" id="loadMoreBtn"
+                        class="text-primary text-sm font-bold hover:underline">عرض المزيد</button>
+                </div>
+            </div>
+
+            <footer class="mt-8 text-center text-slate-400 text-xs pb-4">&copy; 2026 النظام الأكاديمي</footer>
+        </div>
+    </main>
+
+    <!-- نافذة التقرير (Modal) -->
+    <div id="exportModal"
+        class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl w-full max-w-6xl shadow-2xl flex flex-col max-h-[95vh]">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
+                <h3 class="text-lg font-bold text-slate-800"><i
+                        class="fa-solid fa-file-contract ml-2 text-primary"></i>معاينة التقرير</h3>
+                <button onclick="closeExportModal()" class="text-slate-400 hover:text-red-500"><i
+                        class="fa-solid fa-times text-xl"></i></button>
+            </div>
+
+            <div class="p-8 overflow-y-auto bg-white" id="reportPreviewContent">
+                <!-- محتوى التقرير سيظهر هنا -->
+            </div>
+
+            <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-end gap-3">
+                <button onclick="exportToExcel()"
+                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md flex items-center gap-2">
+                    <i class="fa-solid fa-file-excel"></i> تصدير Excel
+                </button>
+                <button onclick="exportToPDF()"
+                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md flex items-center gap-2">
+                    <i class="fa-solid fa-print"></i> طباعة PDF
+                </button>
+                <button onclick="closeExportModal()"
+                    class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-50">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. إعدادات البيانات
+        // ==========================================
+        const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzGE0QEX3KW5xf6NFzT0peDDCvl6iI73ezom6IRayMlOQvv1EVH2F9j3Rrnc5MICcMs/exec';
+
+        let COLUMN_MAP = {
+            Department: "department",
+            Year: "academicYear",
+            Semester: "semester",
+            Course: "courseName",
+            Instructor: "professorName",
+            Level: "level",
+            Week: "weekNumber",
+            IsTaught: "isTaught",
+            Date: "lectureDate",
+            College: "college",
+            Type: "teachingMethod"
+        };
+
+        // خريطة ترتيب المستويات (الفرق)
+        const LEVEL_ORDER = {
+            'الأولى': 1, 'الاولى': 1, 'level 1': 1, 'first': 1,
+            'الثانية': 2, 'الثانيه': 2, 'level 2': 2, 'second': 2,
+            'الثالثة': 3, 'الثالثه': 3, 'level 3': 3, 'third': 3,
+            'الرابعة': 4, 'الرابعه': 4, 'level 4': 4, 'fourth': 4,
+            'الخامسة': 5, 'الخامسه': 5, 'level 5': 5, 'fifth': 5
+        };
+
+        let rawData = [];
+        let filteredData = [];
+        let charts = {};
+        let displayedRows = 20;
+
+        // ==========================================
+        // 2. التشغيل والتهيئة
+        // ==========================================
+        async function initDashboard() {
+            try {
+                const response = await fetch(SHEET_URL);
+                if (!response.ok) throw new Error('Network Error');
+                const json = await response.json();
+
+                let data = [];
+                if (Array.isArray(json)) data = json;
+                else if (json.data) data = json.data;
+                else if (json.user) data = json.user;
+
+                if (data.length > 0) {
+                    rawData = data;
+                    detectColumns(rawData[0]);
+                    processData();
+                } else throw new Error("No Data");
+
+            } catch (error) {
+                console.warn("Using Mock Data", error);
+                generateMockData();
+                processData();
+            }
+        }
+
+        function detectColumns(row) {
+            if (!row) return;
+            const keys = Object.keys(row);
+            const mapConfig = {
+                Department: ['department', 'القسم', 'program', 'البرنامج'],
+                Year: ['academicYear', 'العام'],
+                Level: ['level', 'الفرقة', 'المستوى'],
+                Week: ['weekNumber', 'week', 'الاسبوع'],
+                Course: ['courseName', 'المقرر'],
+                Instructor: ['professorName', 'الاستاذ', 'الدكتور'],
+                IsTaught: ['isTaught', 'نعم'],
+                College: ['college', 'الكلية'],
+                Type: ['teachingMethod', 'نوع', 'طريقة', 'method']
+            };
+
+            for (const [mapVal, keywords] of Object.entries(mapConfig)) {
+                const foundKey = keys.find(k => keywords.some(w => k.toLowerCase().includes(w.toLowerCase())));
+                if (foundKey) COLUMN_MAP[mapVal] = foundKey;
+            }
+        }
+
+        function generateMockData() {
+            const depts = ['علوم الحاسوب', 'نظم المعلومات', 'تقنية المعلومات'];
+            const profs = ['د. محمد احمد', 'د. سارة علي', 'أ. خالد عمر'];
+            const courses = ['ذكاء اصطناعي', 'هندسة برمجيات', 'شبكات', 'قواعد بيانات'];
+            const methods = ['عن بعد', 'حضوري'];
+
+            rawData = Array.from({ length: 100 }, (_, i) => ({
+                [COLUMN_MAP.College]: 'كلية علوم الحاسوب وتقانة المعلومات',
+                [COLUMN_MAP.Department]: depts[Math.floor(Math.random() * depts.length)],
+                [COLUMN_MAP.Year]: '2024-2025',
+                [COLUMN_MAP.Level]: ['الأولى', 'الثانية', 'الثالثة', 'الرابعة'][Math.floor(Math.random() * 4)],
+                [COLUMN_MAP.Course]: courses[Math.floor(Math.random() * courses.length)],
+                [COLUMN_MAP.Instructor]: profs[Math.floor(Math.random() * profs.length)],
+                [COLUMN_MAP.Week]: Math.floor(Math.random() * 10) + 1,
+                [COLUMN_MAP.IsTaught]: Math.random() > 0.1 ? 'نعم' : 'لا',
+                [COLUMN_MAP.Type]: methods[Math.floor(Math.random() * methods.length)]
+            }));
+        }
+
+        function processData() {
+            filteredData = [...rawData];
+            buildFilters();
+            updateDashboard();
+            document.getElementById('loader').style.display = 'none';
+        }
+
+        // ==========================================
+        // 3. الفلاتر
+        // ==========================================
+        function buildFilters() {
+            const container = document.getElementById('filtersContainer');
+            container.innerHTML = '';
+
+            const filters = [
+                { key: COLUMN_MAP.Department, label: 'البرنامج الأكاديمي', icon: 'fa-building' },
+                { key: COLUMN_MAP.Year, label: 'العام الدراسي', icon: 'fa-calendar-days' },
+                { key: COLUMN_MAP.Level, label: 'الفرقة / المستوى', icon: 'fa-layer-group' },
+                { key: COLUMN_MAP.Week, label: 'رقم الأسبوع', icon: 'fa-calendar-week' },
+                { key: COLUMN_MAP.Instructor, label: 'عضو هيئة التدريس', icon: 'fa-user-tie' }
+            ];
+
+            filters.forEach(f => {
+                let uniqueVals = [...new Set(rawData.map(r => r[f.key]?.toString().trim()))].filter(Boolean);
+                // ترتيب القيم
+                if (f.key === COLUMN_MAP.Week) {
+                    uniqueVals.sort((a, b) => parseInt(a) - parseInt(b));
+                } else if (f.key === COLUMN_MAP.Level) {
+                    uniqueVals.sort((a, b) => (LEVEL_ORDER[a] || 99) - (LEVEL_ORDER[b] || 99));
+                } else {
+                    uniqueVals.sort();
+                }
+
+                if (uniqueVals.length === 0) return;
+
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <label class="block text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1">
+                        <i class="fa-solid ${f.icon} text-slate-400"></i> ${f.label}
+                    </label>
+                    <div class="relative">
+                        <select data-key="${f.key}" data-label="${f.label}" onchange="applyFilters()" 
+                            class="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary block p-2.5 pl-8 outline-none shadow-sm">
+                            <option value="">الكل</option>
+                            ${uniqueVals.map(v => `<option value="${v}">${v}</option>`).join('')}
+                        </select>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function applyFilters() {
+            const selects = document.querySelectorAll('#filtersContainer select');
+            filteredData = rawData.filter(row => {
+                return Array.from(selects).every(select => {
+                    const val = select.value;
+                    if (!val) return true;
+                    return row[select.dataset.key]?.toString().trim() === val;
+                });
+            });
+            updateDashboard();
+        }
+
+        function resetFilters() {
+            document.querySelectorAll('#filtersContainer select').forEach(s => s.value = '');
+            applyFilters();
+        }
+
+        // ==========================================
+        // 4. التحديث والعرض
+        // ==========================================
+        function updateDashboard() {
+            document.getElementById('kpiTotalLectures').innerText = filteredData.length;
+            document.getElementById('kpiTaughtYes').innerText = filteredData.filter(d => String(d[COLUMN_MAP.IsTaught]).includes('نعم')).length;
+
+            const uniqueInstructors = new Set(filteredData.map(d => d[COLUMN_MAP.Instructor])).size;
+            document.getElementById('kpiInstructors').innerText = uniqueInstructors;
+
+            const uniqueCourses = new Set(filteredData.map(d => d[COLUMN_MAP.Course])).size;
+            document.getElementById('kpiActiveCourses').innerText = uniqueCourses;
+
+            updateCharts();
+            updateTable();
+        }
+
+        function updateCharts() {
+            Chart.defaults.font.family = "'Cairo', sans-serif";
+
+            // 1. Chart: Departments (Pie Chart) - تم التعديل
+            const deptData = groupBy(filteredData, COLUMN_MAP.Department);
+            renderChart('deptChart', 'pie', Object.keys(deptData), Object.values(deptData), 'توزيع المحاضرات',
+                ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#6366f1']);
+
+            // 2. Chart: Weeks (Line Chart)
+            const weekData = groupBy(filteredData, COLUMN_MAP.Week);
+            const sortedWeeks = Object.keys(weekData).sort((a, b) => parseInt(a) - parseInt(b));
+            renderChart('weeksChart', 'line', sortedWeeks, sortedWeeks.map(w => weekData[w]), 'المحاضرات أسبوعياً', '#8b5cf6', true);
+        }
+
+        function renderChart(id, type, labels, data, label, colors, fill = false) {
+            const ctx = document.getElementById(id).getContext('2d');
+            if (charts[id]) charts[id].destroy();
+
+            const config = {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        backgroundColor: colors,
+                        borderColor: type === 'line' ? colors : '#fff',
+                        borderWidth: 2,
+                        fill: fill,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { family: 'Cairo' }, usePointStyle: true } }
+                    }
+                }
+            };
+
+            if (type === 'line') {
+                config.options.scales = { y: { beginAtZero: true, grid: { borderDash: [4, 4] } }, x: { grid: { display: false } } };
+            }
+
+            charts[id] = new Chart(ctx, config);
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('dataTableBody');
+            tbody.innerHTML = '';
+            filteredData.slice(0, displayedRows).forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 border-b border-slate-50 last:border-0";
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-bold text-slate-700">${row[COLUMN_MAP.Department] || '-'}</td>
+                    <td class="px-6 py-4 text-xs">${row[COLUMN_MAP.Level] || '-'}</td>
+                    <td class="px-6 py-4">${row[COLUMN_MAP.Course] || '-'}</td>
+                    <td class="px-6 py-4 text-xs">${row[COLUMN_MAP.Instructor] || '-'}</td>
+                    <td class="px-6 py-4 font-bold text-center">${row[COLUMN_MAP.Week] || '-'}</td>
+                    <td class="px-6 py-4 text-center text-xs">${row[COLUMN_MAP.Type] || '-'}</td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="${String(row[COLUMN_MAP.IsTaught]).includes('نعم') ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'} px-2 py-1 rounded text-xs font-bold">
+                            ${row[COLUMN_MAP.IsTaught]}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('loadMoreBtn').style.display = displayedRows >= filteredData.length ? 'none' : 'inline-block';
+        }
+
+        function loadMore() { displayedRows += 20; updateTable(); }
+
+        document.getElementById('searchInput').addEventListener('keyup', (e) => {
+            const term = e.target.value.toLowerCase();
+            if (!term) { applyFilters(); return; }
+            filteredData = rawData.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(term)));
+            displayedRows = 20;
+            updateDashboard();
+        });
+
+        // ==========================================
+        // 5. التقرير المخصص (مع التحسينات)
+        // ==========================================
+        function openExportModal() {
+            document.getElementById('exportModal').classList.remove('hidden');
+            generateReportTable();
+        }
+
+        function closeExportModal() {
+            document.getElementById('exportModal').classList.add('hidden');
+        }
+
+        function generateReportTable() {
+            const container = document.getElementById('reportPreviewContent');
+
+            // 1. جمع الفلاتر النشطة للعرض
+            let activeFiltersHTML = '';
+            document.querySelectorAll('#filtersContainer select').forEach(select => {
+                if (select.value) {
+                    activeFiltersHTML += `
+                        <div class="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-100">
+                            <span class="font-bold">${select.dataset.label}:</span>
+                            <span>${select.value}</span>
+                        </div>
+                    `;
+                }
+            });
+            if (!activeFiltersHTML) activeFiltersHTML = '<span class="text-gray-400">عرض شامل (جميع البيانات)</span>';
+
+            // 2. تجميع البيانات حسب (القسم + الفرقة)
+            const groups = {};
+            filteredData.forEach(row => {
+                const dept = row[COLUMN_MAP.Department] || 'غير محدد';
+                const level = row[COLUMN_MAP.Level] || 'غير محدد';
+                const groupKey = `${dept}|||${level}`;
+
+                if (!groups[groupKey]) groups[groupKey] = [];
+                groups[groupKey].push(row);
+            });
+
+            // 3. ترتيب المجموعات (القسم أبجدياً، ثم الفرقة حسب الترتيب المنطقي)
+            const sortedGroupKeys = Object.keys(groups).sort((a, b) => {
+                const [deptA, levelA] = a.split('|||');
+                const [deptB, levelB] = b.split('|||');
+
+                if (deptA !== deptB) return deptA.localeCompare(deptB);
+                return (LEVEL_ORDER[levelA] || 99) - (LEVEL_ORDER[levelB] || 99);
+            });
+
+            const collegeName = filteredData.length > 0 ? filteredData[0][COLUMN_MAP.College] : '................';
+            const currentDate = new Date().toLocaleDateString('ar-EG');
+
+            let html = `
+                <div class="text-center mb-6 pb-4 border-b-2 border-slate-800">
+                    <h1 class="text-3xl font-bold mb-2">تقرير متابعة تنفيذ الخطة الدراسية</h1>
+                    <p class="text-sm text-slate-500">تاريخ الاستخراج: ${currentDate}</p>
+                </div>
+
+                <div class="report-meta-box print-visible">
+                    <span class="font-bold text-slate-700">معايير التقرير:</span>
+                    ${activeFiltersHTML}
+                </div>
+            `;
+
+            if (sortedGroupKeys.length === 0) {
+                container.innerHTML = '<p class="text-center text-red-500 py-10">لا توجد بيانات للعرض وفقاً للفلاتر الحالية</p>';
+                return;
+            }
+
+            sortedGroupKeys.forEach(key => {
+                const [dept, level] = key.split('|||');
+                const groupRows = groups[key];
+
+                // التجميع الداخلي
+                const aggregated = {};
+                groupRows.forEach(row => {
+                    const itemKey = `${row[COLUMN_MAP.Course]}||${row[COLUMN_MAP.Instructor]}||${row[COLUMN_MAP.Type]}`;
+                    if (!aggregated[itemKey]) {
+                        aggregated[itemKey] = {
+                            course: row[COLUMN_MAP.Course],
+                            prof: row[COLUMN_MAP.Instructor],
+                            type: row[COLUMN_MAP.Type],
+                            count: 0
+                        };
+                    }
+                    aggregated[itemKey].count++;
+                });
+
+                html += `
+                    <div class="mb-10 break-inside-avoid page-break-block">
+                        <div class="report-header-box">
+                            <span>الكلية: ${collegeName}</span>
+                            <span>القسم: ${dept}</span>
+                            <span>الفرقة: ${level}</span>
+                        </div>
+                        
+                        <table class="w-full text-right border-collapse border border-black text-sm report-table">
+                            <thead>
+                                <tr>
+                                    <th class="w-12 text-center">م</th>
+                                    <th>اسم المقرر</th>
+                                    <th>طريقة المحاضرة</th>
+                                    <th>اسم الاستاذ/ـه</th>
+                                    <th class="w-24 text-center">عدد المحاضرات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                Object.values(aggregated).forEach((item, index) => {
+                    html += `
+                        <tr>
+                            <td class="text-center">${index + 1}</td>
+                            <td class="font-semibold">${item.course || '-'}</td>
+                            <td>${item.type || '-'}</td>
+                            <td>${item.prof || '-'}</td>
+                            <td class="text-center font-bold bg-gray-50">${item.count}</td>
+                        </tr>
+                    `;
+                });
+
+                html += `</tbody></table></div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // ==========================================
+        // 6. التصدير (PDF & Excel) - تحديث للطباعة
+        // ==========================================
+        function exportToExcel() {
+            const flatData = [];
+            // نفس منطق الترتيب للتصدير
+            const groups = {};
+            filteredData.forEach(row => {
+                const key = `${row[COLUMN_MAP.Department]}|||${row[COLUMN_MAP.Level]}`;
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(row);
+            });
+
+            const sortedKeys = Object.keys(groups).sort((a, b) => {
+                const [dA, lA] = a.split('|||');
+                const [dB, lB] = b.split('|||');
+                if (dA !== dB) return dA.localeCompare(dB);
+                return (LEVEL_ORDER[lA] || 99) - (LEVEL_ORDER[lB] || 99);
+            });
+
+            const collegeName = filteredData.length > 0 ? filteredData[0][COLUMN_MAP.College] : '';
+
+            sortedKeys.forEach(groupKey => {
+                const [dept, level] = groupKey.split('|||');
+                const groupRows = groups[groupKey];
+                const aggregated = {};
+
+                groupRows.forEach(row => {
+                    const k = `${row[COLUMN_MAP.Course]}||${row[COLUMN_MAP.Instructor]}||${row[COLUMN_MAP.Type]}`;
+                    if (!aggregated[k]) aggregated[k] = { ...row, count: 0, _c: row[COLUMN_MAP.Course], _p: row[COLUMN_MAP.Instructor], _t: row[COLUMN_MAP.Type] };
+                    aggregated[k].count++;
+                });
+
+                Object.values(aggregated).forEach((item, idx) => {
+                    flatData.push({
+                        "الكلية": collegeName, "القسم": dept, "الفرقة": level,
+                        "م": idx + 1, "اسم المقرر": item._c, "طريقة المحاضرة": item._t,
+                        "اسم الاستاذ": item._p, "عدد المحاضرات": item.count
+                    });
+                });
+            });
+
+            const ws = XLSX.utils.json_to_sheet(flatData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "تقرير الخطة");
+            wb.Workbook = { Views: [{ RTL: true }] };
+            XLSX.writeFile(wb, "تقرير_الخطة_الدراسية.xlsx");
+        }
+
+        function exportToPDF() {
+            const element = document.getElementById('reportPreviewContent');
+            const dateStr = new Date().toLocaleDateString('ar-EG');
+
+            const opt = {
+                margin: [10, 10, 15, 10], // top, left, bottom, right
+                filename: `تقرير_الخطة_${dateStr.replace(/\//g, '-')}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            // استخدام دالة toPdf للوصول للكائن الداخلي وإضافة التذييل
+            html2pdf().from(element).set(opt).toPdf().get('pdf').then(function (pdf) {
+                var totalPages = pdf.internal.getNumberOfPages();
+                for (var i = 1; i <= totalPages; i++) {
+                    pdf.setPage(i);
+                    pdf.setFontSize(10);
+                    // قد لا تدعم الخطوط العربية الافتراضية في jsPDF النص العربي المباشر في الفوتر
+                    // لذا نستخدم نصاً بسيطاً أو الإنجليزية للأرقام، ولكن html2pdf يعالج المحتوى الرئيسي كصورة
+                    // هنا سنضيف التاريخ ورقم الصفحة
+                    var footerText = `Page ${i} of ${totalPages}  |  Printed: ${dateStr}`;
+                    pdf.text(footerText, 10, pdf.internal.pageSize.getHeight() - 8);
+                }
+            }).save();
+        }
+
+        function groupBy(data, key) {
+            return data.reduce((acc, curr) => {
+                const val = curr[key] ? String(curr[key]).trim() : 'غير محدد';
+                acc[val] = (acc[val] || 0) + 1;
+                return acc;
+            }, {});
+        }
+
+        function toggleSidebar() {
+            const sb = document.getElementById('sidebar');
+            sb.classList.toggle('hidden');
+            sb.classList.toggle('absolute');
+            sb.classList.toggle('h-full');
+        }
+
+        window.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
+</body>
+
+</html>
